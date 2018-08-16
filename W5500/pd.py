@@ -284,16 +284,15 @@ class Decoder(srd.Decoder):
             if self.mosi_bytes()[0] != 0x73:
                 self.warn(pos, 'wrong data for "ACTIVATE" command')
 
-    """
-    the data argument of the decode function that contains the data to
-    decode, is a list of tuples.
-    These tuples contain the (absolute) number of the sample and the data
-    at that sample.
-    """
     def decode(self, ss, es, data):
-        if not self.requirements_met:
-            return
 
+        # ptype = 'DATA': data1 contains MOSI data, data2 contains the MISO data
+        # ptype = 'BITS': data1 and data2 contains a list of bit values
+        # ptype = 'CS-CHANGE': data1 is the old CS# value, data2 is the new value
+        #                      both are pytho numbers (0/1), not str
+        # ptype = 'TRANSFER': data1 and data2 contain a list of Data() named tuples
+        #                   for each byte transferred during this block of CS#
+        #                   asserted time. Each Data() has fiels ss, es, and val
         ptype, data1, data2 = data
 
         if ptype == 'CS-CHANGE':
