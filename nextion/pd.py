@@ -77,14 +77,101 @@ class Decoder(srd.Decoder):
         self.put(self.ss_block, self.es_block, self.out_ann, [1, [msg]])
 
     def decode_cmd(self, rxtx, s):
-        # TODO: Maybe write down all the instructions on a tuple and
-        # iterate over it?
-        if s.startswith('page'):
-            self.put_text('Refresh {}'.format(s))
-            self.put_instruction('Refresh Page')
-        elif s.startwith('ref'):
-            self.put_text('Refresh component {}'.format(s))
-            self.put_instruction('Refresh component')
+        # Decode TX data
+        if rxtx == 1:
+            print('Decoding tx data {}'.format(s.encode()))
+            if s.startswith('page'):
+                self.put_text('Refresh {}'.format(s))
+                self.put_instruction('Refresh Page')
+            elif s.startswith('ref'):
+                self.put_text('Refresh component {}'.format(s))
+                self.put_instruction('Refresh component')
+        elif rxtx == 0: # Decode RX data
+            print('Decoding rx data {}'.format(s.encode()))
+            if s == chr(0x00):
+                self.put_text('Invalid instruction')
+                self.put_instruction('Invalid instruction')
+            elif s == chr(0x01):
+                self.put_text('Successful execution')
+                self.put_instruction('Successful execution')
+            elif s == chr(0x02):
+                self.put_text('Component ID invalid')
+                self.put_instruction('Component ID invalid')
+            elif s == chr(0x03):
+                self.put_text('Page ID invalid')
+                self.put_instruction('Page ID invalid')
+            elif s == chr(0x04):
+                self.put_text('Picture ID invalid')
+                self.put_instruction('Picture ID invalid')
+            elif s == chr(0x05):
+                self.put_text('Font execution')
+                self.put_instruction('Font execution')
+            elif s == chr(0x11):
+                self.put_text('Baudrate setting invalid')
+                self.put_instruction('Baudrate setting invalid')
+            elif s == chr(0x12):
+                self.put_text('Curve control ID number or channel invalid')
+                self.put_instruction('Curve control ID number or channel invalid')
+            elif s == chr(0x1A):
+                self.put_text('Variable name invalid')
+                self.put_instruction('Variable name invalid')
+            elif s == chr(0x1B):
+                self.put_text('Variable operation invalid')
+                self.put_instruction('Variable operation invalid')
+            elif s == chr(0x1C):
+                self.put_text('Failed to assign')
+                self.put_instruction('Failed to assign')
+            elif s == chr(0x1D):
+                self.put_text('Operate EEPROM failed')
+                self.put_instruction('Operate EEPROM failed')
+            elif s == chr(0x1E):
+                self.put_text('Parameter quantity invalid')
+                self.put_instruction('Parameter quantity invalid')
+            elif s == chr(0x1F):
+                self.put_text('IO operation invalid')
+                self.put_instruction('IO operation invalid')
+            elif s == chr(0x20):
+                self.put_text('Undefined escape characters')
+                self.put_instruction('Undefined escape characters')
+            elif s == chr(0x23):
+                self.put_text('Too long variable name')
+                self.put_instruction('Too long variable name')
+            elif s == chr(0x65):
+                self.put_text('Touch event return data')
+                self.put_instruction('Touch event return data')
+            elif s == chr(0x66):
+                self.put_text('Current page ID number returns')
+                self.put_instruction('Current page ID number returns')
+            elif s == chr(0x67):
+                self.put_text('Touch coordinate data returns')
+                self.put_instruction('Touch coordinate data returns')
+            elif s == chr(0x68):
+                self.put_text('Touch event in sleep mode')
+                self.put_instruction('Touch event in sleep mode')
+            elif s == chr(0x70):
+                self.put_text('String variable data returns')
+                self.put_instruction('String variable data returns')
+            elif s == chr(0x71):
+                self.put_text('Numeric variable data returns')
+                self.put_instruction('Numeric variable data returns')
+            elif s == chr(0x86):
+                self.put_text('Device automatically enters into sleep mode')
+                self.put_instruction('Device automatically enters into sleep mode')
+            elif s == chr(0x87):
+                self.put_text('Device automatically wake up')
+                self.put_instruction('Device automatically wake up')
+            elif s == chr(0x88):
+                self.put_text('System successful start up')
+                self.put_instruction('System successful start up')
+            elif s == chr(0x89):
+                self.put_text('Start SD upgrade')
+                self.put_instruction('Start SD upgrade')
+            elif s == chr(0xFD):
+                self.put_text('Data transparent transmit finished')
+                self.put_instruction('Data transparent transmit finished')
+            elif s == chr(0xFE):
+                self.put_text('Data transparent transmit ready')
+                self.put_instruction('Data transparent transmit ready')
     
     def decode(self, start_sample, end_sample, data):
         '''
@@ -114,7 +201,7 @@ class Decoder(srd.Decoder):
             return
 
         # We're only interested in the byte value (see DATA above)
-        pdata = pdata[0]
+        pdata = pdata[0] # RX packets
 
         # If this is the start of a command/reply, remember the start sample.
         if self.cmd[rxtx] == '':
