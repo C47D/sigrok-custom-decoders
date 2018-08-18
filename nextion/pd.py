@@ -224,19 +224,16 @@ class Decoder(srd.Decoder):
                 # 0x70 string variable data returns
                 # 0x70 + Variable Content in ASCII code + End
                 # 0x70 0x61 0x62 0x63 0xFF 0xFF 0xFF
-                # Meaning: return value data: "abc"
-
-                # TODO
-                
-                self.put_text('String variable data returns: {}'.format(return_str))
+                # Meaning: return value data: "abc"                
+                self.put_text('String variable data returns: {}'.format(s[1:]))
                 self.put_instruction('String variable data returns')
             elif s[0] == chr(0x71): # numeric variable data returns
                 # 0x71 numeric variable data returns
                 # 0x71 + Variable binary data (4 bytes little endian, low in front) + End
                 # 0x71 0x66 0x00 0x00 0x00 0xFF 0xFF 0xFF
                 # Meaning: return value data: 102
-                value = s[1] + s[2] + s[3] + s[4]
-                self.put_text('Numeric variable data returns')
+                value = int(ord(s[1])) + int(ord(s[2])) + int(ord(s[3])) + int(ord(s[4]))
+                self.put_text('Numeric variable data returns: {}'.format(value))
                 self.put_instruction('Numeric variable data returns')
             
     def decode(self, start_sample, end_sample, data):
