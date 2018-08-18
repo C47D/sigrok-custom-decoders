@@ -76,6 +76,9 @@ class Decoder(srd.Decoder):
     def put_text(self, msg):
         self.put(self.ss_block, self.es_block, self.out_ann, [1, [msg]])
 
+    def char_to_int(self, number):
+        return int(ord(number))
+
     def decode_cmd(self, rxtx, s):
         # Decode TX data
         if rxtx == 1:
@@ -87,7 +90,6 @@ class Decoder(srd.Decoder):
                 self.put_text('Refresh component {}'.format(s))
                 self.put_instruction('Refresh component')
         elif rxtx == 0: # Decode RX data
-            print('Decoding rx data {}'.format(s.encode()))
             if s == chr(0x00):
                 self.put_text('Invalid instruction')
                 self.put_instruction('Invalid instruction')
@@ -136,24 +138,6 @@ class Decoder(srd.Decoder):
             elif s == chr(0x23):
                 self.put_text('Too long variable name')
                 self.put_instruction('Too long variable name')
-            elif s == chr(0x65):
-                self.put_text('Touch event return data')
-                self.put_instruction('Touch event return data')
-            elif s == chr(0x66):
-                self.put_text('Current page ID number returns')
-                self.put_instruction('Current page ID number returns')
-            elif s == chr(0x67):
-                self.put_text('Touch coordinate data returns')
-                self.put_instruction('Touch coordinate data returns')
-            elif s == chr(0x68):
-                self.put_text('Touch event in sleep mode')
-                self.put_instruction('Touch event in sleep mode')
-            elif s == chr(0x70):
-                self.put_text('String variable data returns')
-                self.put_instruction('String variable data returns')
-            elif s == chr(0x71):
-                self.put_text('Numeric variable data returns')
-                self.put_instruction('Numeric variable data returns')
             elif s == chr(0x86):
                 self.put_text('Device automatically enters into sleep mode')
                 self.put_instruction('Device automatically enters into sleep mode')
@@ -172,7 +156,89 @@ class Decoder(srd.Decoder):
             elif s == chr(0xFE):
                 self.put_text('Data transparent transmit ready')
                 self.put_instruction('Data transparent transmit ready')
-    
+            # Begin of return codes with multiple bytes
+            elif s[0] == chr(0x65): # touch event return data
+                # 0x65 + Page ID + Component ID + TouchEvent + End
+                # TouchEvent: Press event = 0x01, Release Event = 0x00
+                event = self.char_to_int(s[-1])
+                page_id = self.char_to_int(s[1])
+                component_id = self.char_to_int(s[2])
+                if event == 1:
+                    touch_event = 'Press'
+                elif event == 0:
+                    touch_event = 'Release'
+                else:
+                    touch_event = 'Invalid'
+                self.put_text('Page ID: {}, Component: ID {}, {} event'.format(page_id, component_id, touch_event))
+                self.put_instruction('Touch event return data')
+            elif s[0] == chr(0x66): # current page id number returns
+                # 0x66 + Page ID + End
+                page_id = self.char_to_int(s[1])
+                self.put_text('Current Page ID: {}'.format(page_id))
+                self.put_instruction('Current page ID number returns')
+            elif s[0] == chr(0x67): # touch coordinate data returns
+                # 0x67 + Coordinate X High-order + Coordinate X Low + Coordinate Y High + Coordinate Y Low + TouchEvent State
+                # TouchEvent: Press Event 0x01, Release Event 0x00
+                # 0x67 0x00 0x7A 0x00 0x1E 0x01 0xFF 0xFF 0xFF
+                # Meaning: Coordinate(122, 30) Press event
+                x_high = self.char_to_int(s[1])
+                x_low = self.char_to_int(s[2])
+                y_high = self.char_to_int(s[3])
+                y_low = self.char_to_int(s[4])
+                event = self.char_to_int(s[-1])
+                
+                x_cord = x_high + x_low
+                y_cord = y_high + y_low
+                if event == 1:
+                    touch_event = 'Press'
+                elif event == 0:
+                    touch_event = 'Release'
+                else:
+                    touch_event = 'Invalid'
+                self.put_text('Coordinate ({}, {}), {} event'.format(x_cord, y_cord, touch_event))
+                self.put_instruction('Touch coordinate data returns')
+            elif s[0] == chr(0x68): # touch event in sleep mode
+                # 0x68 + Coordinate X High-order + Coordinate X Low + Coordinate Y High + Coordinate Y Low + TouchEvent State
+                # TouchEvent: Press Event 0x01, Release Event 0x00
+                # 0x68 0x00 0x7A 0x00 0x1E 0x01 0xFF 0xFF 0xFF
+                # Meaning: Coordinate(122, 30) Press event
+                x_high = self.char_to_int(s[1])
+                x_low = self.char_to_int(s[2])
+                y_high = self.char_to_int(s[3])
+                y_low = self.char_to_int(s[4])
+                event = self.char_to_int(s[-1])
+
+                x_cord = x_high + x_low
+                y_cord = y_high + y_low
+                if event == 1:
+                    touch_event = 'Press'
+                elif event == 0:
+                    touch_event = 'Release'
+                else:
+                    touch_event = 'Invalid'
+                self.put_text('Coordinate ({}, {}), {} event'.format(x_cord, y_cord, touch_event))
+                self.put_instruction('Touch coordinate data returns')
+                self.put_text('Touch event in sleep mode')
+                self.put_instruction('Touch event in sleep mode')
+            elif s[0] == chr(0x70): # string variable data returns
+                # 0x70 string variable data returns
+                # 0x70 + Variable Content in ASCII code + End
+                # 0x70 0x61 0x62 0x63 0xFF 0xFF 0xFF
+                # Meaning: return value data: "abc"
+
+                # TODO
+                
+                self.put_text('String variable data returns: {}'.format(return_str))
+                self.put_instruction('String variable data returns')
+            elif s[0] == chr(0x71): # numeric variable data returns
+                # 0x71 numeric variable data returns
+                # 0x71 + Variable binary data (4 bytes little endian, low in front) + End
+                # 0x71 0x66 0x00 0x00 0x00 0xFF 0xFF 0xFF
+                # Meaning: return value data: 102
+                value = s[1] + s[2] + s[3] + s[4]
+                self.put_text('Numeric variable data returns')
+                self.put_instruction('Numeric variable data returns')
+            
     def decode(self, start_sample, end_sample, data):
         '''
         OUTPUT_PYTHON format: (from uart decoder)
